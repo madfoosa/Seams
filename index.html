@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Seams — a single-file project command center that tracks the gaps between work sessions. Drift gauges, session logs, and agent-ready handoff briefs.">
 <title>Seams — Project Command Center</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%B5%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -58,6 +60,23 @@ button.quiet{border-color:var(--line);color:var(--ink-soft)}
 button.quiet:hover{background:var(--ink-soft);border-color:var(--ink-soft);color:var(--card)}
 button.danger{border-color:var(--stamp);color:var(--stamp)}
 button.danger:hover{background:var(--stamp);color:var(--card)}
+
+/* ---------- filter bar ---------- */
+.filterbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+.filterbar input[type=search]{
+  flex:1;min-width:180px;width:auto;font-family:var(--mono);font-size:12.5px;
+  border:1.5px solid var(--ink-soft);border-radius:2px;background:#FFF;padding:8px 10px;color:var(--ink);
+}
+.filterbar select{
+  width:auto;font-family:var(--mono);font-size:12.5px;padding:7px 8px;
+  border:1.5px solid var(--ink-soft);border-radius:2px;background:#FFF;color:var(--ink);
+}
+.filterbar input[type=search]:focus,.filterbar select:focus{outline:2px solid var(--amber);outline-offset:1px;border-color:var(--ink)}
+.stalechk{
+  display:flex;gap:6px;align-items:center;font-family:var(--mono);font-size:12px;
+  color:var(--ink-soft);cursor:pointer;user-select:none;
+}
+.stalechk input{width:auto;accent-color:var(--stamp)}
 
 /* ---------- banner ---------- */
 .banner{
@@ -216,6 +235,16 @@ footer code{background:var(--card);border:1px solid var(--line);padding:1px 4px;
     <button class="quiet" onclick="copyAgentBrief()">Copy full brief for an agent</button>
   </div>
 
+  <div class="filterbar">
+    <input type="search" id="fSearch" placeholder="Search name, tags, next action…" aria-label="Search projects" oninput="render()">
+    <select id="fFilterPhase" aria-label="Filter by phase" onchange="render()">
+      <option value="">All phases</option>
+      <option>Idea</option><option>Planning</option><option>Building</option>
+      <option>Pilot</option><option>Paused</option><option>Shipped</option>
+    </select>
+    <label class="stalechk"><input type="checkbox" id="fStaleOnly" onchange="render()"> Stale only</label>
+  </div>
+
   <div class="grid" id="grid"></div>
   <div class="empty" id="empty" style="display:none">
     No projects on the board.<br>
@@ -345,7 +374,13 @@ function driftLevel(p){
 /* ---------- render ---------- */
 function render(){
   const grid = $('grid'), empty = $('empty');
-  const ps = [...state.projects];
+  const q = $('fSearch').value.trim().toLowerCase();
+  const phaseF = $('fFilterPhase').value;
+  const staleOnly = $('fStaleOnly').checked;
+  let ps = [...state.projects];
+  if(q) ps = ps.filter(p => [p.name, p.next_action, p.blockers, p.notes, ...(p.tags||[])].join(' ').toLowerCase().includes(q));
+  if(phaseF) ps = ps.filter(p => p.phase === phaseF);
+  if(staleOnly) ps = ps.filter(p => driftLevel(p) === 2);
   // sort: active phases first, then most drifted first (attention order), shipped last
   ps.sort((a,b)=>{
     const pa=PHASE_ORDER[a.phase]??3, pb=PHASE_ORDER[b.phase]??3;
@@ -357,6 +392,11 @@ function render(){
 
   grid.innerHTML = ps.map(cardHTML).join('');
   empty.style.display = ps.length ? 'none' : 'block';
+  if(!ps.length){
+    empty.innerHTML = state.projects.length
+      ? 'No projects match the current filters.'
+      : 'No projects on the board.<br>Add one, or Import JSON from another session.';
+  }
 
   const active = state.projects.filter(p=>!['Paused','Shipped'].includes(p.phase));
   const stale = active.filter(p=>driftLevel(p)===2).length;
@@ -390,9 +430,10 @@ function cardHTML(p){
     ${p.next_action?`<div class="next"><span class="lbl">NEXT ACTION</span>${esc(p.next_action)}</div>`:''}
     ${p.blockers?`<div class="block"><span class="lbl">BLOCKED</span>${esc(p.blockers)}</div>`:''}
     <div class="tagfoot">
-      <button onclick="openLog('${p.id}')">Log session</button>
-      <button onclick="openHandoff('${p.id}')">Handoff</button>
-      <button class="quiet" onclick="openEditor('${p.id}')">Edit</button>
+      <button data-act="log" data-id="${esc(p.id)}">Log session</button>
+      <button data-act="touch" data-id="${esc(p.id)}">Mark touched</button>
+      <button data-act="handoff" data-id="${esc(p.id)}">Handoff</button>
+      <button class="quiet" data-act="edit" data-id="${esc(p.id)}">Edit</button>
     </div>
     <details>
       <summary>details · ${artifacts.length} artifact${artifacts.length===1?'':'s'} · ${log.length} log entr${log.length===1?'y':'ies'}</summary>
@@ -458,12 +499,19 @@ function deleteProject(){
 }
 
 /* ---------- session log ---------- */
+function markTouched(id){
+  const p = state.projects.find(x=>x.id===id);
+  if(!p) return;
+  p.touched_at = new Date().toISOString();
+  persist(); toast('Marked touched — drift reset');
+}
 function openLog(id){ loggingId=id; $('fLog').value=''; $('logOverlay').classList.add('show'); $('fLog').focus(); }
 function closeLog(){ $('logOverlay').classList.remove('show'); loggingId=null; }
 function saveLog(){
   const entry = $('fLog').value.trim();
   if(!entry){ toast('Write what happened first'); return; }
   const p = state.projects.find(x=>x.id===loggingId);
+  if(!p){ closeLog(); return; }
   p.log = p.log||[];
   p.log.push({at:new Date().toISOString(), entry});
   p.touched_at = new Date().toISOString();
@@ -499,6 +547,7 @@ function buildHandoff(p){
 }
 function openHandoff(id){
   const p = state.projects.find(x=>x.id===id);
+  if(!p) return;
   handoffMd = buildHandoff(p);
   $('handoffText').textContent = handoffMd;
   $('handoffOverlay').classList.add('show');
@@ -533,6 +582,32 @@ function fallbackCopy(text,msg){
 }
 
 /* ---------- import / export ---------- */
+const PHASES = ['Idea','Planning','Building','Pilot','Paused','Shipped'];
+function validISO(s){ const t = Date.parse(s); return isNaN(t) ? null : new Date(t).toISOString(); }
+function sanitizeProject(raw){
+  if(!raw || typeof raw !== 'object' || typeof raw.name !== 'string' || !raw.name.trim()) return null;
+  const now = new Date().toISOString();
+  const created = validISO(raw.created_at) || now;
+  return {
+    id: (typeof raw.id === 'string' && raw.id.trim()) ? raw.id.trim() : uid(),
+    name: raw.name.trim(),
+    phase: PHASES.includes(raw.phase) ? raw.phase : 'Idea',
+    next_action: typeof raw.next_action === 'string' ? raw.next_action : '',
+    blockers: typeof raw.blockers === 'string' ? raw.blockers : '',
+    artifacts: Array.isArray(raw.artifacts) ? raw.artifacts.filter(a=>typeof a === 'string' && a.trim()) : [],
+    tags: Array.isArray(raw.tags) ? raw.tags.filter(t=>typeof t === 'string' && t.trim()) : [],
+    notes: typeof raw.notes === 'string' ? raw.notes : '',
+    log: Array.isArray(raw.log)
+      ? raw.log.filter(l=>l && typeof l.entry === 'string' && l.entry.trim())
+               .map(l=>({at: validISO(l.at) || now, entry: l.entry}))
+      : [],
+    created_at: created,
+    touched_at: validISO(raw.touched_at) || created,
+    drift_amber_days: Math.max(1, parseInt(raw.drift_amber_days) || 7),
+    drift_stale_days: Math.max(2, parseInt(raw.drift_stale_days) || 21),
+  };
+}
+
 function exportJSON(){
   const doc = {version:1, exported_at:new Date().toISOString(), projects:state.projects};
   const blob = new Blob([JSON.stringify(doc,null,2)], {type:'application/json'});
@@ -553,12 +628,9 @@ function importJSON(ev){
       const incoming = Array.isArray(doc) ? doc : doc.projects;
       if(!Array.isArray(incoming)) throw new Error('no projects array');
       let added=0, updated=0;
-      incoming.forEach(ip=>{
-        if(!ip.name) return;
-        ip.id = ip.id || uid();
-        ip.log = ip.log||[];
-        ip.created_at = ip.created_at || new Date().toISOString();
-        ip.touched_at = ip.touched_at || ip.created_at;
+      incoming.forEach(raw=>{
+        const ip = sanitizeProject(raw);
+        if(!ip) return;
         const existing = state.projects.find(x=>x.id===ip.id);
         if(existing){ Object.assign(existing, ip); updated++; }
         else { state.projects.push(ip); added++; }
@@ -572,6 +644,16 @@ function importJSON(ev){
 }
 
 /* ---------- misc ---------- */
+$('grid').addEventListener('click', e=>{
+  const btn = e.target.closest('button[data-act]');
+  if(!btn) return;
+  const {act, id} = btn.dataset;
+  if(act==='log') openLog(id);
+  else if(act==='touch') markTouched(id);
+  else if(act==='handoff') openHandoff(id);
+  else if(act==='edit') openEditor(id);
+});
+
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){ closeEditor(); closeLog(); closeHandoff(); }
 });
