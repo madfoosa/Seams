@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seams — Project Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E9ECE5;        /* ledger green-gray */
+  --card:#F5F6F1;
+  --ink:#1C231E;          /* near-black green ink */
+  --ink-soft:#4A544C;
+  --line:#C6CCC0;
+  --amber:#9A6B0F;        /* inspection amber */
+  --amber-bg:#F0E2C0;
+  --stamp:#A3332B;        /* stale stamp red */
+  --stamp-bg:#F2D9D5;
+  --fresh:#2F6B3F;
+  --fresh-bg:#D9E6DA;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'IBM Plex Sans',sans-serif;
+  --disp:'Saira Condensed',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--paper)}
+body{
+  font-family:var(--sans);color:var(--ink);
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(28,35,30,.045) 27px, rgba(28,35,30,.045) 28px),
+    var(--paper);
+  min-height:100vh;padding-bottom:80px;
+}
+.wrap{max-width:980px;margin:0 auto;padding:0 16px}
+
+/* ---------- header ---------- */
+header{border-bottom:2px solid var(--ink);padding:22px 0 14px;margin-bottom:18px}
+.masthead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+h1{font-family:var(--disp);font-weight:800;font-size:44px;letter-spacing:.02em;line-height:.9;text-transform:uppercase}
+.tagline{font-family:var(--mono);font-size:12px;color:var(--ink-soft)}
+.headbar{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.stats{font-family:var(--mono);font-size:12px;color:var(--ink-soft);text-align:right;line-height:1.6}
+.stats b{color:var(--ink)}
+
+/* ---------- toolbar ---------- */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+button{
+  font-family:var(--mono);font-size:12.5px;font-weight:500;cursor:pointer;
+  border:1.5px solid var(--ink);background:var(--card);color:var(--ink);
+  padding:8px 14px;border-radius:2px;transition:background .12s;
+}
+button:hover{background:var(--ink);color:var(--card)}
+button:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+button.primary{background:var(--ink);color:var(--card)}
+button.primary:hover{background:var(--ink-soft);border-color:var(--ink-soft)}
+button.quiet{border-color:var(--line);color:var(--ink-soft)}
+button.quiet:hover{background:var(--ink-soft);border-color:var(--ink-soft);color:var(--card)}
+button.danger{border-color:var(--stamp);color:var(--stamp)}
+button.danger:hover{background:var(--stamp);color:var(--card)}
+
+/* ---------- banner ---------- */
+.banner{
+  display:none;font-family:var(--mono);font-size:12px;
+  background:var(--amber-bg);border:1.5px solid var(--amber);color:var(--amber);
+  padding:10px 14px;border-radius:2px;margin-bottom:16px;
+}
+.banner.show{display:block}
+
+/* ---------- card / inspection tag ---------- */
+.grid{display:grid;grid-template-columns:1fr;gap:14px}
+.tag{
+  background:var(--card);border:1.5px solid var(--ink);border-radius:2px;
+  position:relative;padding:16px 18px 14px 44px;
+  box-shadow:3px 3px 0 rgba(28,35,30,.12);
+}
+/* punched hole + string edge */
+.tag::before{
+  content:'';position:absolute;left:14px;top:18px;width:12px;height:12px;
+  border:2px solid var(--ink);border-radius:50%;background:var(--paper);
+}
+.tag::after{
+  content:'';position:absolute;left:29px;top:0;bottom:0;width:0;
+  border-left:1px dashed var(--line);
+}
+.tag.stale-2{border-color:var(--stamp)}
+.tag.stale-2::before{border-color:var(--stamp)}
+.tag.done{opacity:.62}
+.taghead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.tagname{font-family:var(--disp);font-weight:800;font-size:26px;text-transform:uppercase;letter-spacing:.01em;line-height:1}
+.chips{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.chip{
+  font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.05em;
+  border:1.5px solid var(--ink);padding:2px 8px;border-radius:2px;text-transform:uppercase;
+}
+.chip.phase-Idea{background:var(--paper)}
+.chip.phase-Planning{background:var(--amber-bg);border-color:var(--amber);color:var(--amber)}
+.chip.phase-Building{background:var(--fresh-bg);border-color:var(--fresh);color:var(--fresh)}
+.chip.phase-Pilot{background:var(--amber-bg);border-color:var(--amber);color:var(--amber)}
+.chip.phase-Paused{background:var(--paper);border-color:var(--ink-soft);color:var(--ink-soft)}
+.chip.phase-Shipped{background:var(--ink);color:var(--card)}
+
+/* drift gauge */
+.drift{display:flex;align-items:center;gap:8px;margin:10px 0 2px;font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+.ticks{display:flex;gap:3px}
+.tick{width:6px;height:14px;background:var(--line);border-radius:1px}
+.tick.on-0{background:var(--fresh)}
+.tick.on-1{background:var(--amber)}
+.tick.on-2{background:var(--stamp)}
+.stalestamp{
+  font-family:var(--disp);font-weight:800;font-size:13px;letter-spacing:.14em;
+  color:var(--stamp);border:2px solid var(--stamp);padding:1px 7px;border-radius:2px;
+  transform:rotate(-4deg);text-transform:uppercase;background:var(--stamp-bg);
+}
+.next{
+  margin-top:10px;padding:10px 12px;background:var(--paper);
+  border-left:3px solid var(--ink);font-size:14px;line-height:1.45;
+}
+.next .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;color:var(--ink-soft);display:block;margin-bottom:3px}
+.block{
+  margin-top:8px;padding:8px 12px;background:var(--stamp-bg);
+  border-left:3px solid var(--stamp);font-size:13px;line-height:1.45;color:#6E241E;
+}
+.block .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;display:block;margin-bottom:2px;color:var(--stamp)}
+.tagfoot{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.tagfoot button{font-size:11.5px;padding:6px 10px}
+
+/* details */
+details{margin-top:10px}
+summary{
+  font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);cursor:pointer;
+  letter-spacing:.05em;user-select:none;
+}
+summary:hover{color:var(--ink)}
+.detailbody{margin-top:10px;font-size:13px;line-height:1.55}
+.detailbody h4{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin:12px 0 4px}
+.detailbody ul{margin-left:18px}
+.loglist{list-style:none;margin-left:0!important;border-left:2px solid var(--line);padding-left:12px}
+.loglist li{margin-bottom:8px}
+.loglist .when{font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);display:block}
+.notes{white-space:pre-wrap}
+
+/* ---------- empty state ---------- */
+.empty{
+  border:1.5px dashed var(--ink-soft);border-radius:2px;padding:40px 24px;text-align:center;
+  font-family:var(--mono);font-size:13px;color:var(--ink-soft);line-height:1.8;
+}
+
+/* ---------- modal ---------- */
+.overlay{
+  display:none;position:fixed;inset:0;background:rgba(28,35,30,.45);z-index:10;
+  padding:20px;overflow-y:auto;
+}
+.overlay.show{display:block}
+.modal{
+  max-width:640px;margin:30px auto;background:var(--card);
+  border:2px solid var(--ink);border-radius:2px;padding:22px;
+  box-shadow:6px 6px 0 rgba(28,35,30,.25);
+}
+.modal h2{font-family:var(--disp);font-weight:800;font-size:26px;text-transform:uppercase;margin-bottom:14px}
+label{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);display:block;margin:12px 0 4px}
+input,select,textarea{
+  width:100%;font-family:var(--sans);font-size:14px;color:var(--ink);
+  border:1.5px solid var(--ink-soft);border-radius:2px;background:#FFF;
+  padding:8px 10px;
+}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--amber);outline-offset:1px;border-color:var(--ink)}
+textarea{resize:vertical;min-height:64px}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);margin-top:3px}
+.modalfoot{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+
+/* handoff preview */
+pre.handoff{
+  font-family:var(--mono);font-size:12px;line-height:1.5;background:var(--paper);
+  border:1.5px solid var(--line);border-radius:2px;padding:12px;overflow-x:auto;
+  white-space:pre-wrap;max-height:340px;overflow-y:auto;
+}
+
+/* toast */
+.toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:var(--card);font-family:var(--mono);font-size:12.5px;
+  padding:10px 18px;border-radius:2px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;
+}
+.toast.show{opacity:1}
+
+/* footer */
+footer{margin-top:36px;font-family:var(--mono);font-size:11px;color:var(--ink-soft);line-height:1.7}
+footer code{background:var(--card);border:1px solid var(--line);padding:1px 4px;border-radius:2px}
+
+@media(min-width:760px){ .grid{grid-template-columns:1fr 1fr} }
+@media(prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="headbar">
+      <div class="masthead">
+        <h1>Seams</h1>
+        <span class="tagline">projects die between sessions — track the gaps</span>
+      </div>
+      <div class="stats" id="stats"></div>
+    </div>
+  </header>
+
+  <div class="banner" id="storageBanner">
+    ⚠ Storage unavailable in this preview — data lives in memory only. Export JSON before closing. (On GitHub Pages this saves automatically.)
+  </div>
+
+  <div class="toolbar">
+    <button class="primary" onclick="openEditor()">+ New project</button>
+    <button onclick="exportJSON()">Export JSON</button>
+    <button onclick="document.getElementById('importFile').click()">Import JSON</button>
+    <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="importJSON(event)">
+    <button class="quiet" onclick="copyAgentBrief()">Copy full brief for an agent</button>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" style="display:none">
+    No projects on the board.<br>
+    Add one, or Import JSON from another session.
+  </div>
+
+  <footer>
+    <strong>For agents & other sessions:</strong> the Export JSON file is the source of truth — schema:
+    <code>{version, exported_at, projects:[{id,name,phase,next_action,blockers,artifacts[],tags[],notes,log:[{at,entry}],created_at,touched_at,drift_amber_days,drift_stale_days}]}</code>.
+    An agent can read or edit that file directly; re-import it here to sync. "Handoff" on any card copies a paste-ready markdown brief for resuming that project in a fresh chat.
+  </footer>
+</div>
+
+<!-- editor modal -->
+<div class="overlay" id="editorOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
+    <h2 id="editorTitle">New project</h2>
+    <label for="fName">Project name</label>
+    <input id="fName" placeholder="e.g. Fault Lines v0.2">
+    <label for="fPhase">Phase</label>
+    <select id="fPhase">
+      <option>Idea</option><option>Planning</option><option>Building</option>
+      <option>Pilot</option><option>Paused</option><option>Shipped</option>
+    </select>
+    <label for="fNext">Next action</label>
+    <textarea id="fNext" placeholder="The one concrete thing to do next session"></textarea>
+    <label for="fBlockers">Blockers</label>
+    <textarea id="fBlockers" placeholder="What's stopping progress (leave empty if none)"></textarea>
+    <label for="fArtifacts">Artifacts to upload on resume</label>
+    <textarea id="fArtifacts" placeholder="One per line — e.g. ROADMAP.md, index.html, HANDOFF.md"></textarea>
+    <div class="hint">One file per line. These appear in the handoff brief.</div>
+    <label for="fTags">Tags</label>
+    <input id="fTags" placeholder="comma-separated — e.g. QC, tooling">
+    <label for="fNotes">Notes / context</label>
+    <textarea id="fNotes" placeholder="Standing decisions, constraints, links"></textarea>
+    <label for="fAmber">Drift thresholds (days to amber / days to stale)</label>
+    <div style="display:flex;gap:8px">
+      <input id="fAmber" type="number" min="1" value="7" style="max-width:100px">
+      <input id="fStale" type="number" min="2" value="21" style="max-width:100px">
+    </div>
+    <div class="hint">How many untouched days before the gauge turns amber, then stamps STALE.</div>
+    <div class="modalfoot">
+      <button class="danger" id="deleteBtn" style="display:none;margin-right:auto" onclick="deleteProject()">Delete</button>
+      <button class="quiet" onclick="closeEditor()">Cancel</button>
+      <button class="primary" onclick="saveProject()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- log modal -->
+<div class="overlay" id="logOverlay">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h2>Log a session</h2>
+    <label for="fLog">What happened / what changed</label>
+    <textarea id="fLog" placeholder="e.g. Shipped Act I build; tide engine verified; next is Zone 5"></textarea>
+    <div class="hint">Logging also resets the drift gauge for this project.</div>
+    <div class="modalfoot">
+      <button class="quiet" onclick="closeLog()">Cancel</button>
+      <button class="primary" onclick="saveLog()">Save log</button>
+    </div>
+  </div>
+</div>
+
+<!-- handoff modal -->
+<div class="overlay" id="handoffOverlay">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h2>Handoff brief</h2>
+    <pre class="handoff" id="handoffText"></pre>
+    <div class="modalfoot">
+      <button class="quiet" onclick="closeHandoff()">Close</button>
+      <button class="primary" onclick="copyHandoff()">Copy to clipboard</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const STORE_KEY = 'seams.v1';
+const PHASE_ORDER = {Building:0, Pilot:1, Planning:2, Idea:3, Paused:4, Shipped:5};
+
+/* ---------- storage (localStorage with in-memory fallback) ---------- */
+let memStore = null;
+function storageOK(){
+  try{ localStorage.setItem('seams.test','1'); localStorage.removeItem('seams.test'); return true; }
+  catch(e){ return false; }
+}
+const hasLS = storageOK();
+if(!hasLS) document.getElementById('storageBanner').classList.add('show');
+
+function loadState(){
+  try{
+    const raw = hasLS ? localStorage.getItem(STORE_KEY) : memStore;
+    if(!raw) return {version:1, projects:[]};
+    const s = JSON.parse(raw);
+    if(!Array.isArray(s.projects)) return {version:1, projects:[]};
+    return s;
+  }catch(e){ return {version:1, projects:[]}; }
+}
+function persist(){
+  const raw = JSON.stringify(state);
+  if(hasLS){ try{ localStorage.setItem(STORE_KEY, raw); }catch(e){ toast('Save failed: storage full?'); } }
+  else memStore = raw;
+  render();
+}
+
+let state = loadState();
+let editingId = null, loggingId = null, handoffMd = '';
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const uid = () => 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const daysSince = iso => Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+function fmtDate(iso){ const d=new Date(iso); return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2200); }
+
+function driftLevel(p){
+  if(p.phase==='Shipped') return 0;
+  const d = daysSince(p.touched_at);
+  if(d >= (p.drift_stale_days ?? 21)) return 2;
+  if(d >= (p.drift_amber_days ?? 7)) return 1;
+  return 0;
+}
+
+/* ---------- render ---------- */
+function render(){
+  const grid = $('grid'), empty = $('empty');
+  const ps = [...state.projects];
+  // sort: active phases first, then most drifted first (attention order), shipped last
+  ps.sort((a,b)=>{
+    const pa=PHASE_ORDER[a.phase]??3, pb=PHASE_ORDER[b.phase]??3;
+    const ga=(pa>=4)?1:0, gb=(pb>=4)?1:0;           // paused/shipped sink
+    if(ga!==gb) return ga-gb;
+    const da=daysSince(a.touched_at), db=daysSince(b.touched_at);
+    return db-da;
+  });
+
+  grid.innerHTML = ps.map(cardHTML).join('');
+  empty.style.display = ps.length ? 'none' : 'block';
+
+  const active = state.projects.filter(p=>!['Paused','Shipped'].includes(p.phase));
+  const stale = active.filter(p=>driftLevel(p)===2).length;
+  $('stats').innerHTML = `<b>${state.projects.length}</b> projects · <b>${active.length}</b> active · <b style="color:${stale?'var(--stamp)':'inherit'}">${stale}</b> stale`;
+}
+
+function cardHTML(p){
+  const lvl = driftLevel(p);
+  const d = daysSince(p.touched_at);
+  const maxTicks = 10;
+  const stale = p.drift_stale_days ?? 21;
+  const filled = Math.min(maxTicks, Math.ceil((d/stale)*maxTicks));
+  let ticks='';
+  for(let i=0;i<maxTicks;i++) ticks += `<span class="tick ${i<filled?('on-'+lvl):''}"></span>`;
+  const artifacts = (p.artifacts||[]).filter(Boolean);
+  const log = (p.log||[]).slice().reverse();
+  return `
+  <div class="tag stale-${lvl} ${p.phase==='Shipped'?'done':''}">
+    <div class="taghead">
+      <div class="tagname">${esc(p.name)}</div>
+      <div class="chips">
+        <span class="chip phase-${esc(p.phase)}">${esc(p.phase)}</span>
+        ${(p.tags||[]).map(t=>`<span class="chip">${esc(t)}</span>`).join('')}
+      </div>
+    </div>
+    <div class="drift">
+      <span class="ticks">${ticks}</span>
+      <span>${d}d since touch</span>
+      ${lvl===2?'<span class="stalestamp">Stale</span>':''}
+    </div>
+    ${p.next_action?`<div class="next"><span class="lbl">NEXT ACTION</span>${esc(p.next_action)}</div>`:''}
+    ${p.blockers?`<div class="block"><span class="lbl">BLOCKED</span>${esc(p.blockers)}</div>`:''}
+    <div class="tagfoot">
+      <button onclick="openLog('${p.id}')">Log session</button>
+      <button onclick="openHandoff('${p.id}')">Handoff</button>
+      <button class="quiet" onclick="openEditor('${p.id}')">Edit</button>
+    </div>
+    <details>
+      <summary>details · ${artifacts.length} artifact${artifacts.length===1?'':'s'} · ${log.length} log entr${log.length===1?'y':'ies'}</summary>
+      <div class="detailbody">
+        ${p.notes?`<h4>Notes</h4><div class="notes">${esc(p.notes)}</div>`:''}
+        ${artifacts.length?`<h4>Upload on resume</h4><ul>${artifacts.map(a=>`<li>${esc(a)}</li>`).join('')}</ul>`:''}
+        ${log.length?`<h4>Session log</h4><ul class="loglist">${log.map(l=>`<li><span class="when">${fmtDate(l.at)}</span>${esc(l.entry)}</li>`).join('')}</ul>`:''}
+        <h4>Record</h4>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--ink-soft)">created ${fmtDate(p.created_at)} · last touched ${fmtDate(p.touched_at)}</div>
+      </div>
+    </details>
+  </div>`;
+}
+
+/* ---------- editor ---------- */
+function openEditor(id){
+  editingId = id || null;
+  const p = id ? state.projects.find(x=>x.id===id) : null;
+  $('editorTitle').textContent = p ? 'Edit project' : 'New project';
+  $('deleteBtn').style.display = p ? 'inline-block' : 'none';
+  $('fName').value = p?.name || '';
+  $('fPhase').value = p?.phase || 'Idea';
+  $('fNext').value = p?.next_action || '';
+  $('fBlockers').value = p?.blockers || '';
+  $('fArtifacts').value = (p?.artifacts||[]).join('\n');
+  $('fTags').value = (p?.tags||[]).join(', ');
+  $('fNotes').value = p?.notes || '';
+  $('fAmber').value = p?.drift_amber_days ?? 7;
+  $('fStale').value = p?.drift_stale_days ?? 21;
+  $('editorOverlay').classList.add('show');
+  $('fName').focus();
+}
+function closeEditor(){ $('editorOverlay').classList.remove('show'); editingId=null; }
+function saveProject(){
+  const name = $('fName').value.trim();
+  if(!name){ toast('Project needs a name'); $('fName').focus(); return; }
+  const data = {
+    name,
+    phase: $('fPhase').value,
+    next_action: $('fNext').value.trim(),
+    blockers: $('fBlockers').value.trim(),
+    artifacts: $('fArtifacts').value.split('\n').map(s=>s.trim()).filter(Boolean),
+    tags: $('fTags').value.split(',').map(s=>s.trim()).filter(Boolean),
+    notes: $('fNotes').value.trim(),
+    drift_amber_days: Math.max(1, parseInt($('fAmber').value)||7),
+    drift_stale_days: Math.max(2, parseInt($('fStale').value)||21),
+  };
+  if(editingId){
+    const p = state.projects.find(x=>x.id===editingId);
+    Object.assign(p, data);
+  }else{
+    const now = new Date().toISOString();
+    state.projects.push({id:uid(), ...data, log:[], created_at:now, touched_at:now});
+  }
+  persist(); closeEditor(); toast('Saved');
+}
+function deleteProject(){
+  if(!editingId) return;
+  const p = state.projects.find(x=>x.id===editingId);
+  if(!confirm(`Delete "${p.name}" and its log? This cannot be undone.`)) return;
+  state.projects = state.projects.filter(x=>x.id!==editingId);
+  persist(); closeEditor(); toast('Deleted');
+}
+
+/* ---------- session log ---------- */
+function openLog(id){ loggingId=id; $('fLog').value=''; $('logOverlay').classList.add('show'); $('fLog').focus(); }
+function closeLog(){ $('logOverlay').classList.remove('show'); loggingId=null; }
+function saveLog(){
+  const entry = $('fLog').value.trim();
+  if(!entry){ toast('Write what happened first'); return; }
+  const p = state.projects.find(x=>x.id===loggingId);
+  p.log = p.log||[];
+  p.log.push({at:new Date().toISOString(), entry});
+  p.touched_at = new Date().toISOString();
+  persist(); closeLog(); toast('Logged — drift reset');
+}
+
+/* ---------- handoff ---------- */
+function buildHandoff(p){
+  const lines = [];
+  lines.push(`# Handoff: ${p.name}`);
+  lines.push('');
+  lines.push(`- **Phase:** ${p.phase}`);
+  lines.push(`- **Last touched:** ${fmtDate(p.touched_at)} (${daysSince(p.touched_at)} days ago)`);
+  if(p.tags?.length) lines.push(`- **Tags:** ${p.tags.join(', ')}`);
+  lines.push('');
+  if(p.next_action){ lines.push('## Next action'); lines.push(p.next_action); lines.push(''); }
+  if(p.blockers){ lines.push('## Blockers'); lines.push(p.blockers); lines.push(''); }
+  if(p.notes){ lines.push('## Context / standing decisions'); lines.push(p.notes); lines.push(''); }
+  if(p.artifacts?.length){
+    lines.push('## Artifacts I am uploading with this brief');
+    p.artifacts.forEach(a=>lines.push(`- ${a}`));
+    lines.push('');
+  }
+  const recent = (p.log||[]).slice(-5).reverse();
+  if(recent.length){
+    lines.push('## Recent session log (newest first)');
+    recent.forEach(l=>lines.push(`- ${fmtDate(l.at)} — ${l.entry}`));
+    lines.push('');
+  }
+  lines.push('## Instruction');
+  lines.push('Resume this project from the state above. Start with the next action unless the uploaded artifacts contradict it — if they do, flag the discrepancy before proceeding.');
+  return lines.join('\n');
+}
+function openHandoff(id){
+  const p = state.projects.find(x=>x.id===id);
+  handoffMd = buildHandoff(p);
+  $('handoffText').textContent = handoffMd;
+  $('handoffOverlay').classList.add('show');
+}
+function closeHandoff(){ $('handoffOverlay').classList.remove('show'); }
+function copyHandoff(){ copyText(handoffMd, 'Handoff copied — paste into a fresh chat'); }
+
+function copyAgentBrief(){
+  if(!state.projects.length){ toast('Nothing on the board yet'); return; }
+  const doc = {version:1, exported_at:new Date().toISOString(), projects:state.projects};
+  const md = [
+    '# Seams — full board state',
+    '',
+    'This JSON is the complete state of my project command center. Each project has a phase, next_action, blockers, artifacts to request, notes, and a session log. Use it as context; if you change project state, return the updated JSON in the same schema so I can re-import it.',
+    '',
+    '```json',
+    JSON.stringify(doc, null, 2),
+    '```',
+  ].join('\n');
+  copyText(md, 'Full board brief copied');
+}
+
+function copyText(text, msg){
+  if(navigator.clipboard?.writeText){
+    navigator.clipboard.writeText(text).then(()=>toast(msg)).catch(()=>fallbackCopy(text,msg));
+  } else fallbackCopy(text,msg);
+}
+function fallbackCopy(text,msg){
+  const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta);
+  ta.select(); try{ document.execCommand('copy'); toast(msg);}catch(e){ toast('Copy failed — select the text manually'); }
+  document.body.removeChild(ta);
+}
+
+/* ---------- import / export ---------- */
+function exportJSON(){
+  const doc = {version:1, exported_at:new Date().toISOString(), projects:state.projects};
+  const blob = new Blob([JSON.stringify(doc,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `seams-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Exported');
+}
+function importJSON(ev){
+  const file = ev.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const doc = JSON.parse(reader.result);
+      const incoming = Array.isArray(doc) ? doc : doc.projects;
+      if(!Array.isArray(incoming)) throw new Error('no projects array');
+      let added=0, updated=0;
+      incoming.forEach(ip=>{
+        if(!ip.name) return;
+        ip.id = ip.id || uid();
+        ip.log = ip.log||[];
+        ip.created_at = ip.created_at || new Date().toISOString();
+        ip.touched_at = ip.touched_at || ip.created_at;
+        const existing = state.projects.find(x=>x.id===ip.id);
+        if(existing){ Object.assign(existing, ip); updated++; }
+        else { state.projects.push(ip); added++; }
+      });
+      persist();
+      toast(`Imported — ${added} added, ${updated} updated`);
+    }catch(e){ toast('Import failed: not a valid Seams JSON file'); }
+    ev.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+/* ---------- misc ---------- */
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){ closeEditor(); closeLog(); closeHandoff(); }
+});
+[['editorOverlay',closeEditor],['logOverlay',closeLog],['handoffOverlay',closeHandoff]].forEach(([id,fn])=>{
+  $(id).addEventListener('click', e=>{ if(e.target.id===id) fn(); });
+});
+
+render();
+</script>
+</body>
+</html>
